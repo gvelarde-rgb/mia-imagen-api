@@ -16,8 +16,8 @@ WP_RSS_URL = "https://cms.mia937.com/feed/"
 WP_API_BASE = "https://cms.mia937.com/wp-json/wp/v2"
 LOGO_URL = "https://www.mia937.com/logos/logo_mia.svg"
 
-# Brand colors for MIA (pink/magenta accent — feminine radio brand)
-ACCENT_COLOR = (200, 50, 120)  # pinkish-magenta for bracket decorations
+# Brand colors for MIA (purple accent — matches MIA's brand purple)
+ACCENT_COLOR = (148, 50, 255)  # vibrant purple matching MIA's "Sintonízanos" button
 TITLE_BG = (255, 255, 255, 210)  # semi-transparent white
 TITLE_TEXT_COLOR = (30, 30, 30)
 OUTPUT_W, OUTPUT_H = 1080, 1350
