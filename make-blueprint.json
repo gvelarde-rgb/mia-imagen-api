@@ -1,0 +1,538 @@
+{
+  "blueprint": {
+    "flow": [
+      {
+        "id": 1,
+        "mapper": {},
+        "module": "rss:TriggerNewArticle",
+        "version": 4,
+        "metadata": {
+          "restore": {},
+          "designer": {
+            "x": 0,
+            "y": 0
+          },
+          "interface": [
+            {
+              "name": "title",
+              "type": "text",
+              "label": "Title"
+            },
+            {
+              "name": "description",
+              "type": "text",
+              "label": "Description"
+            },
+            {
+              "name": "summary",
+              "type": "text",
+              "label": "Summary"
+            },
+            {
+              "name": "author",
+              "type": "text",
+              "label": "Author"
+            },
+            {
+              "name": "url",
+              "type": "url",
+              "label": "URL"
+            },
+            {
+              "name": "dateUpdated",
+              "type": "date",
+              "label": "Date updated"
+            },
+            {
+              "name": "dateCreated",
+              "type": "date",
+              "label": "Date created"
+            },
+            {
+              "name": "comments",
+              "type": "url",
+              "label": "Comments"
+            },
+            {
+              "name": "image",
+              "spec": [
+                {
+                  "name": "title",
+                  "type": "text",
+                  "label": "Name"
+                },
+                {
+                  "name": "url",
+                  "type": "url",
+                  "label": "URL"
+                }
+              ],
+              "type": "collection",
+              "label": "Image"
+            },
+            {
+              "name": "categories",
+              "spec": {
+                "type": "text"
+              },
+              "type": "array",
+              "label": "Categories"
+            },
+            {
+              "name": "source",
+              "spec": [
+                {
+                  "name": "title",
+                  "type": "text",
+                  "label": "Name"
+                },
+                {
+                  "name": "url",
+                  "type": "url",
+                  "label": "URL"
+                }
+              ],
+              "type": "collection",
+              "label": "Source"
+            },
+            {
+              "name": "enclosures",
+              "spec": [
+                {
+                  "name": "url",
+                  "type": "url",
+                  "label": "URL"
+                },
+                {
+                  "name": "type",
+                  "type": "text",
+                  "label": "Type"
+                },
+                {
+                  "name": "length",
+                  "type": "number",
+                  "label": "Length"
+                }
+              ],
+              "type": "array",
+              "label": "Enclosures"
+            },
+            {
+              "help": "Other RSS fields. All values are in text format.",
+              "name": "rssFields",
+              "spec": [
+                {
+                  "name": "title",
+                  "type": "text",
+                  "label": "title"
+                },
+                {
+                  "name": "link",
+                  "type": "text",
+                  "label": "link"
+                },
+                {
+                  "name": "guid",
+                  "type": "text",
+                  "label": "guid"
+                },
+                {
+                  "name": "pubdate",
+                  "type": "text",
+                  "label": "pubdate"
+                },
+                {
+                  "name": "category",
+                  "type": "text",
+                  "label": "category"
+                },
+                {
+                  "name": "description",
+                  "type": "text",
+                  "label": "description"
+                },
+                {
+                  "name": "media:content",
+                  "spec": [
+                    {
+                      "name": "props",
+                      "spec": [
+                        {
+                          "name": "url",
+                          "type": "text",
+                          "label": "url"
+                        },
+                        {
+                          "name": "type",
+                          "type": "text",
+                          "label": "type"
+                        },
+                        {
+                          "name": "medium",
+                          "type": "text",
+                          "label": "medium"
+                        }
+                      ],
+                      "type": "collection",
+                      "label": "Properties"
+                    },
+                    {
+                      "name": "value",
+                      "type": "text",
+                      "label": "Value"
+                    }
+                  ],
+                  "type": "collection",
+                  "label": "media:content"
+                }
+              ],
+              "type": "collection",
+              "label": "RSS fields"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "url",
+              "type": "url",
+              "label": "URL",
+              "required": true
+            },
+            {
+              "name": "maxResults",
+              "type": "number",
+              "label": "Maximum number of returned items",
+              "required": true
+            },
+            {
+              "name": "username",
+              "type": "text",
+              "label": "User name"
+            },
+            {
+              "name": "password",
+              "type": "text",
+              "label": "Password"
+            },
+            {
+              "name": "include",
+              "type": "select",
+              "label": "Process RSS fields",
+              "multiple": true,
+              "validate": {
+                "enum": [
+                  "google-merchant-center",
+                  "itunes"
+                ]
+              }
+            },
+            {
+              "name": "gzip",
+              "type": "boolean",
+              "label": "Request compressed content",
+              "required": true
+            }
+          ]
+        },
+        "parameters": {
+          "url": "{{MIA_IMAGEN_API_URL}}/rss-proxy",
+          "gzip": true,
+          "include": [],
+          "password": "",
+          "username": "",
+          "maxResults": 1
+        }
+      },
+      {
+        "id": 8,
+        "mapper": {
+          "url": "{{MIA_IMAGEN_API_URL}}/generar-imagen?titulo={{encodeURL(1.title)}}&foto_url={{encodeURL(1.rssFields.`media:content`.props.url)}}",
+          "shareCookies": false,
+          "stopOnHttpError": true
+        },
+        "module": "http:DownloadFile",
+        "version": 4,
+        "metadata": {
+          "expect": [
+            {
+              "name": "url",
+              "type": "url",
+              "label": "URL",
+              "required": true
+            },
+            {
+              "name": "stopOnHttpError",
+              "type": "boolean",
+              "label": "Return error if HTTP request fails",
+              "required": true
+            },
+            {
+              "name": "shareCookies",
+              "type": "boolean",
+              "label": "Share cookies with other HTTP modules",
+              "required": true
+            },
+            {
+              "name": "headers",
+              "spec": {
+                "name": "value",
+                "spec": [
+                  {
+                    "name": "name",
+                    "type": "text",
+                    "label": "Name",
+                    "required": true,
+                    "validate": {
+                      "pattern": "^[-!#$%&'*+.^_`|~0-9A-Za-z]+$"
+                    }
+                  },
+                  {
+                    "name": "value",
+                    "type": "text",
+                    "label": "Value"
+                  }
+                ],
+                "type": "collection",
+                "label": "Header"
+              },
+              "type": "array",
+              "label": "Headers"
+            },
+            {
+              "name": "queryParameters",
+              "spec": {
+                "name": "value",
+                "spec": [
+                  {
+                    "name": "name",
+                    "type": "text",
+                    "label": "Name",
+                    "required": true
+                  },
+                  {
+                    "name": "value",
+                    "type": "text",
+                    "label": "Value"
+                  }
+                ],
+                "type": "collection",
+                "label": "Parameter"
+              },
+              "type": "array",
+              "label": "Query parameters"
+            }
+          ],
+          "restore": {
+            "expect": {
+              "headers": {
+                "mode": "chose"
+              },
+              "shareCookies": {
+                "mode": "chose"
+              },
+              "queryParameters": {
+                "mode": "chose"
+              },
+              "stopOnHttpError": {
+                "mode": "chose"
+              }
+            },
+            "parameters": {
+              "authenticationType": {
+                "label": "No authenticationUse when no credentials are required for the request."
+              }
+            }
+          },
+          "designer": {
+            "x": 300,
+            "y": 0
+          },
+          "parameters": [
+            {
+              "name": "authenticationType",
+              "type": "select",
+              "label": "Authentication type",
+              "required": true,
+              "validate": {
+                "enum": [
+                  "noAuth",
+                  "apiKey",
+                  "basicAuth",
+                  "oAuth"
+                ]
+              }
+            }
+          ]
+        },
+        "parameters": {
+          "authenticationType": "noAuth"
+        }
+      },
+      {
+        "id": 5,
+        "mapper": {
+          "data": "{{8.data}}",
+          "message": "{{1.title}}\n\nEncuentra la nota completa en el primer comentario.",
+          "page_id": "{{MIA_FB_PAGE_ID}}",
+          "fileName": "{{8.fileName}}"
+        },
+        "module": "facebook-pages:UploadPhoto",
+        "version": 6,
+        "metadata": {
+          "expect": [
+            {
+              "name": "page_id",
+              "type": "select",
+              "label": "Page",
+              "required": true
+            },
+            {
+              "name": "fileName",
+              "type": "filename",
+              "label": "File name",
+              "required": true
+            },
+            {
+              "name": "data",
+              "type": "buffer",
+              "label": "Data",
+              "required": true
+            },
+            {
+              "name": "message",
+              "type": "text",
+              "label": "Photo caption"
+            },
+            {
+              "name": "album_id",
+              "type": "select",
+              "label": "Album"
+            }
+          ],
+          "restore": {
+            "expect": {
+              "page_id": {
+                "mode": "chose",
+                "label": "La Red"
+              },
+              "album_id": {
+                "mode": "chose",
+                "label": "Empty"
+              }
+            },
+            "parameters": {
+              "__IMTCONN__": {
+                "data": {
+                  "scoped": "true",
+                  "connection": "facebook"
+                },
+                "label": "Facebook 949 (Guillermo Castillo)"
+              }
+            }
+          },
+          "designer": {
+            "x": 600,
+            "y": 0
+          },
+          "parameters": [
+            {
+              "name": "__IMTCONN__",
+              "type": "account:facebook",
+              "label": "Connection",
+              "required": true
+            }
+          ]
+        },
+        "parameters": {
+          "__IMTCONN__": "{{MIA_FB_CONNECTION_ID}}"
+        }
+      },
+      {
+        "id": 3,
+        "mapper": {
+          "id": "{{5.post_id}}",
+          "message": "{{1.url}}",
+          "page_id": "{{MIA_FB_PAGE_ID}}"
+        },
+        "module": "facebook-pages:CreateComment",
+        "version": 6,
+        "metadata": {
+          "expect": [
+            {
+              "name": "page_id",
+              "type": "select",
+              "label": "Page",
+              "required": true
+            },
+            {
+              "name": "id",
+              "type": "text",
+              "label": "Post ID",
+              "required": true
+            },
+            {
+              "name": "message",
+              "type": "text",
+              "label": "Comment text"
+            }
+          ],
+          "restore": {
+            "expect": {
+              "id": {
+                "mode": "edit"
+              },
+              "page_id": {
+                "mode": "chose",
+                "label": "La Red"
+              }
+            },
+            "parameters": {
+              "__IMTCONN__": {
+                "data": {
+                  "scoped": "true",
+                  "connection": "facebook"
+                },
+                "label": "Facebook 949 (Guillermo Castillo)"
+              }
+            }
+          },
+          "designer": {
+            "x": 900,
+            "y": 0
+          },
+          "parameters": [
+            {
+              "name": "__IMTCONN__",
+              "type": "account:facebook",
+              "label": "Connection",
+              "required": true
+            }
+          ]
+        },
+        "parameters": {
+          "__IMTCONN__": "{{MIA_FB_CONNECTION_ID}}"
+        }
+      }
+    ],
+    "name": "MIA 93.7 RSS a Facebook",
+    "metadata": {
+      "instant": false,
+      "version": 1,
+      "designer": {
+        "orphans": [],
+        "samples": {}
+      },
+      "scenario": {
+        "dlq": false,
+        "slots": null,
+        "dataloss": false,
+        "maxErrors": 3,
+        "autoCommit": true,
+        "roundtrips": 1,
+        "sequential": true,
+        "confidential": false,
+        "freshVariables": false,
+        "autoCommitTriggerLast": true
+      }
+    }
+  }
+}
