@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: mia-imagen-api
+    runtime: docker
+    plan: free
+    region: oregon
+    envVars: []

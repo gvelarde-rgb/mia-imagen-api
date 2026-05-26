@@ -1,0 +1,5 @@
+flask==3.1.1
+gunicorn==23.0.0
+Pillow==11.2.1
+requests==2.32.3
+cairosvg==2.9.0
