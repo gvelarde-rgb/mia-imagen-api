@@ -51,6 +51,21 @@ def index():
     return jsonify({"servicio": "Mia 93.7 - Generador de Imágenes", "status": "ok"})
 
 
+@app.route("/debug-fetch")
+def debug_fetch():
+    """Temporary debug endpoint to check what the server sees when fetching CMS."""
+    url = request.args.get("url", f"{WP_API_BASE}/posts?per_page=1")
+    try:
+        resp = requests.get(url, timeout=20)
+        return jsonify({
+            "status_code": resp.status_code,
+            "content_type": resp.headers.get("content-type", ""),
+            "body_preview": resp.text[:500],
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
 # ---------------------------------------------------------------------------
 # /rss-proxy  — Enriched RSS feed with media:content tags
 # ---------------------------------------------------------------------------
