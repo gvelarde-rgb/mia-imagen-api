@@ -1,33 +1,21 @@
-# MIA 93.7 - Imagen API Task
+# MIA 93.7 — Image API & Make.com Automation
 
-## BLOCKER: Siteground Captcha
-Siteground's bot protection (`sgcaptcha`) blocks ALL requests from Render's outbound IP `74.220.48.235`.
-This affects:
-- `/rss-proxy` (can't fetch WP REST API or RSS feed)
-- `/generar-imagen` (can't download photos from cms.mia937.com/wp-content/uploads/)
+## COMPLETED
+- [x] SiteGround captcha solver (SHA-1 proof-of-work) — working on Render
+- [x] RSS proxy `/rss-proxy` — returns proper `media:content` tags
+- [x] Image generator `/generar-imagen` — 1080x1350 branded images
+- [x] Deployed to Render (srv-d8c5gebbc2fs738r3rgg)
+- [x] GitHub repo: gvelarde-rgb/mia-imagen-api
 
-### Fix Required
-User must whitelist IP `74.220.48.235` in **SiteTools → Security → Blocked IPs** (add as allowed).
-Alternatively: SiteTools → Speed → Caching → uncheck "Block Bad Bots" or adjust SG Security settings.
-
-## Status
-- [x] App code complete and deployed on Render
-- [x] /rss-proxy endpoint (builds RSS from WP REST API with media:content)
-- [x] /generar-imagen endpoint (branded image generation)  
-- [x] Debug endpoint added for troubleshooting
-- [ ] **BLOCKED** - Production endpoints fail due to Siteground captcha
-- [ ] Make.com blueprint needs updating (currently has placeholders)
-- [ ] Make.com scenario creation
-- [ ] FB page ID discovery for MIA
+## REMAINING
+- [ ] Get MIA FB page_id for `radiomia937`
+- [ ] User creates FB connection in Make.com for MIA page
+- [ ] Import Make.com scenario (blueprint at make-blueprint.json)
+- [ ] Configure scheduling: 300s interval, roundtrips=1, sequential=true
 - [ ] End-to-end test
 
-## Production URLs
-- Service: https://mia-imagen-api.onrender.com
-- Render service ID: srv-d8c5gebbc2fs738r3rgg
-- Render outbound IP: 74.220.48.235
-
-## Make.com
-- Token: 13174307-5beb-4cdf-91a6-ed925fb03e0f
-- Team: 12505, Region: us1.make.com
-- Blueprint: /home/user/mia-imagen-api/make-blueprint.json
-- FB page: radiomia937 (page_id TBD)
+## KEY INFO
+- Render URL: https://mia-imagen-api.onrender.com
+- Brand color: (148, 50, 120) purple
+- Make API token: 13174307-5beb-4cdf-91a6-ed925fb03e0f
+- Make team: 12505, region: us1.make.com

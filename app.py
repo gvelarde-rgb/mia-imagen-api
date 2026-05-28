@@ -42,38 +42,45 @@ _sg_session = None  # Reusable session with solved captcha cookie
 
 def _solve_sg_challenge(challenge_str: str) -> str | None:
     """Solve SiteGround's SHA-1 proof-of-work challenge.
-    
+
     Challenge format: 'difficulty:timestamp:salt:hash:'
-    Must find a counter N such that SHA1(challenge_bytes + counter_bytes) 
+    Must find a counter N such that SHA1(challenge_bytes + counter_bytes)
     has `difficulty` leading zero bits.
-    
-    The JS worker encodes counter as variable-length big-endian bytes,
-    appends to the UTF-8 challenge string, and feeds to CryptoJS SHA-1.
-    The byte-swap (p function) in the JS just converts platform-LE Int32
-    back to BE for CryptoJS — net effect is standard SHA-1 on raw bytes.
+
+    The JS worker encodes the counter as variable-length big-endian bytes
+    (1-4 bytes depending on magnitude), appends to the UTF-8 challenge
+    string, and hashes with SHA-1. The byte-swap helper in the JS worker
+    merely converts platform-LE Int32Array back to big-endian for CryptoJS,
+    so the net effect is standard SHA-1 on the raw byte sequence.
     """
     import base64
 
     difficulty = int(challenge_str.split(":", 1)[0])
     challenge_bytes = challenge_str.encode("utf-8")
-    mask = (1 << difficulty) - 1  # e.g. 0x1FFFFF for difficulty=21
     shift = 32 - difficulty
 
     counter = 0
     max_attempts = 10_000_000
 
     while counter < max_attempts:
-        # Encode counter as variable-length big-endian bytes (matching JS)
+        # Variable-length big-endian encoding — matches JS worker exactly
         if counter == 0:
             counter_bytes = b'\x00'
         else:
-            byte_len = (counter.bit_length() + 7) // 8
-            counter_bytes = counter.to_bytes(byte_len, 'big')
+            if counter > 16777215:
+                byte_count = 4
+            elif counter > 65535:
+                byte_count = 3
+            elif counter > 255:
+                byte_count = 2
+            else:
+                byte_count = 1
+            counter_bytes = counter.to_bytes(byte_count, 'big')
 
         combined = challenge_bytes + counter_bytes
         h = hashlib.sha1(combined).digest()
 
-        # Check leading `difficulty` zero bits via first 4-byte word
+        # Check leading `difficulty` zero bits via first 4-byte word (big-endian)
         first_word = struct.unpack('>I', h[:4])[0]
         if (first_word >> shift) == 0:
             return base64.b64encode(combined).decode('ascii')
