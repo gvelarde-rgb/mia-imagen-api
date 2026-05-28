@@ -61,6 +61,7 @@ def rss_proxy():
     try:
         resp = requests.get(WP_RSS_URL, timeout=15)
         resp.raise_for_status()
+        resp.encoding = "utf-8"
         rss_text = resp.text
     except Exception as e:
         return Response(f"Error fetching RSS: {e}", status=502, mimetype="text/plain")
