@@ -447,8 +447,8 @@ def _generate_branded_image(titulo: str, foto_url: str) -> Image.Image:
         text_y += font_size + 10
 
     # Draw decorative corner brackets (pink/magenta)
-    bracket_len = 40
-    bracket_w = 4
+    bracket_len = 60
+    bracket_w = 10
     bx1, by1 = bar_left - 10, bar_top - 10
     bx2, by2 = bar_right + 10, bar_bottom + 10
 
