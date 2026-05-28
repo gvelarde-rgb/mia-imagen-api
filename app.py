@@ -56,54 +56,82 @@ def index():
 # ---------------------------------------------------------------------------
 @app.route("/rss-proxy")
 def rss_proxy():
-    """Fetch MIA's WordPress RSS, enrich each item with media:content
-    pointing to the full-resolution featured image.
+    """Build an RSS feed from the WP REST API (bypasses Siteground captcha
+    that blocks direct /feed/ access from cloud server IPs).
+    Each item includes a <media:content> tag with the featured image."""
+    import html as html_mod
+    from datetime import datetime, timezone
 
-    Uses regex-based injection instead of full XML round-trip to avoid
-    encoding issues with CDATA / content:encoded sections.
-    """
     try:
-        resp = requests.get(WP_RSS_URL, timeout=15)
+        # Fetch recent posts with embedded featured media
+        api_url = f"{WP_API_BASE}/posts?per_page=10&_embed"
+        resp = requests.get(api_url, timeout=20)
         resp.raise_for_status()
-        resp.encoding = "utf-8"
-        rss_text = resp.text
+        posts = resp.json()
     except Exception as e:
-        return Response(f"Error fetching RSS: {e}", status=502, mimetype="text/plain")
+        return Response(f"Error fetching WP API: {e}", status=502, mimetype="text/plain")
 
-    # Ensure media namespace is declared on <rss> tag
-    if "xmlns:media" not in rss_text:
-        rss_text = rss_text.replace(
-            '<rss ',
-            '<rss xmlns:media="http://search.yahoo.com/mrss/" ',
-            1,
+    # Build RSS XML manually
+    now_rfc822 = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
+    items_xml = []
+    for post in posts:
+        title = html_mod.unescape(post.get("title", {}).get("rendered", ""))
+        link = post.get("link", "")
+        excerpt = post.get("excerpt", {}).get("rendered", "")
+        # Clean excerpt to plain text for description
+        excerpt_text = re.sub(r"<[^>]+>", "", html_mod.unescape(excerpt)).strip()
+        pub_date = ""
+        if post.get("date_gmt"):
+            try:
+                dt = datetime.strptime(post["date_gmt"], "%Y-%m-%dT%H:%M:%S")
+                pub_date = dt.strftime("%a, %d %b %Y %H:%M:%S +0000")
+            except ValueError:
+                pub_date = now_rfc822
+
+        # Get featured image URL from _embedded
+        img_url = ""
+        try:
+            media_list = post.get("_embedded", {}).get("wp:featuredmedia", [])
+            if media_list:
+                img_url = media_list[0].get("source_url", "")
+        except (IndexError, KeyError, TypeError):
+            pass
+
+        # Escape XML special chars in title and excerpt
+        title_escaped = (
+            title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;")
+        )
+        excerpt_escaped = (
+            excerpt_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         )
 
-    # For each <item>, extract best image from <description> and inject
-    # a <media:content> tag right before </item>
-    def _inject_media(match):
-        item_xml = match.group(0)
-        # Skip if already has media:content
-        if "media:content" in item_xml:
-            return item_xml
-        # Extract description content
-        desc_match = re.search(r"<description>(.*?)</description>", item_xml, re.DOTALL)
-        if not desc_match:
-            return item_xml
-        desc_html = desc_match.group(1)
-        # Unescape CDATA / HTML entities for image extraction
-        import html as html_mod
-        desc_decoded = html_mod.unescape(desc_html)
-        best_url = _extract_best_image(desc_decoded)
-        if not best_url:
-            return item_xml
-        mime = _guess_mime(best_url)
-        media_tag = f'\n<media:content url="{best_url}" type="{mime}" medium="image" />'
-        # Insert before closing </item>
-        return item_xml.replace("</item>", f"{media_tag}\n</item>")
+        media_tag = ""
+        if img_url:
+            mime = _guess_mime(img_url)
+            media_tag = f'<media:content url="{img_url}" type="{mime}" medium="image" />'
 
-    rss_text = re.sub(r"<item>.*?</item>", _inject_media, rss_text, flags=re.DOTALL)
+        items_xml.append(f"""    <item>
+      <title>{title_escaped}</title>
+      <link>{link}</link>
+      <guid isPermaLink="true">{link}</guid>
+      <pubDate>{pub_date}</pubDate>
+      <description>{excerpt_escaped}</description>
+      {media_tag}
+    </item>""")
 
-    return Response(rss_text, mimetype="application/rss+xml; charset=utf-8")
+    rss = f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Mia 937</title>
+    <link>https://cms.mia937.com</link>
+    <description>Noticias de Mia 93.7</description>
+    <lastBuildDate>{now_rfc822}</lastBuildDate>
+{chr(10).join(items_xml)}
+  </channel>
+</rss>"""
+
+    return Response(rss, mimetype="application/rss+xml; charset=utf-8")
 
 
 def _rewrite_link(url: str) -> str:
