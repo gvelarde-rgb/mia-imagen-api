@@ -234,7 +234,7 @@
           ]
         },
         "parameters": {
-          "url": "{{MIA_IMAGEN_API_URL}}/rss-proxy",
+          "url": "https://mia-imagen-api.onrender.com/rss-proxy",
           "gzip": true,
           "include": [],
           "password": "",
@@ -245,7 +245,7 @@
       {
         "id": 8,
         "mapper": {
-          "url": "{{MIA_IMAGEN_API_URL}}/generar-imagen?titulo={{encodeURL(1.title)}}&foto_url={{encodeURL(1.rssFields.`media:content`.props.url)}}",
+          "url": "https://mia-imagen-api.onrender.com/generar-imagen?titulo={{encodeURL(1.title)}}&foto_url={{encodeURL(1.rssFields.`media:content`.props.url)}}",
           "shareCookies": false,
           "stopOnHttpError": true
         },
@@ -372,7 +372,7 @@
         "mapper": {
           "data": "{{8.data}}",
           "message": "{{1.title}}\n\nEncuentra la nota completa en el primer comentario.",
-          "page_id": "{{MIA_FB_PAGE_ID}}",
+          "page_id": "773069582830640",
           "fileName": "{{8.fileName}}"
         },
         "module": "facebook-pages:UploadPhoto",
@@ -451,7 +451,7 @@
         "mapper": {
           "id": "{{5.post_id}}",
           "message": "{{1.url}}",
-          "page_id": "{{MIA_FB_PAGE_ID}}"
+          "page_id": "773069582830640"
         },
         "module": "facebook-pages:CreateComment",
         "version": 6,
