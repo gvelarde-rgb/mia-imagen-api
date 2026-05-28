@@ -16,8 +16,17 @@ WP_RSS_URL = "https://cms.mia937.com/feed/"
 WP_API_BASE = "https://cms.mia937.com/wp-json/wp/v2"
 LOGO_URL = "https://www.mia937.com/logos/logo_mia.svg"
 
+# Browser-like headers to bypass Siteground captcha/bot-detection
+BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8",
+    "Accept-Language": "es-GT,es;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+}
+
 # Brand colors for MIA (purple accent — matches MIA's brand purple)
-ACCENT_COLOR = (148, 50, 255)  # vibrant purple matching MIA's "Sintonízanos" button
+ACCENT_COLOR = (148, 50, 120)  # purple matching MIA's brand
 TITLE_BG = (255, 255, 255, 210)  # semi-transparent white
 TITLE_TEXT_COLOR = (30, 30, 30)
 OUTPUT_W, OUTPUT_H = 1080, 1350
@@ -56,7 +65,7 @@ def debug_fetch():
     """Temporary debug endpoint to check what the server sees when fetching CMS."""
     url = request.args.get("url", f"{WP_API_BASE}/posts?per_page=1")
     try:
-        resp = requests.get(url, timeout=20)
+        resp = requests.get(url, headers=BROWSER_HEADERS, timeout=20)
         return jsonify({
             "status_code": resp.status_code,
             "content_type": resp.headers.get("content-type", ""),
@@ -79,8 +88,10 @@ def rss_proxy():
 
     try:
         # Fetch recent posts with embedded featured media
+        # Uses browser-like headers to bypass Siteground captcha
         api_url = f"{WP_API_BASE}/posts?per_page=10&_embed"
-        resp = requests.get(api_url, timeout=20)
+        resp = requests.get(api_url, headers=BROWSER_HEADERS, timeout=20)
+        resp.encoding = "utf-8"
         resp.raise_for_status()
         posts = resp.json()
     except Exception as e:
@@ -222,8 +233,8 @@ def _generate_branded_image(titulo: str, foto_url: str) -> Image.Image:
     - MIA logo below title
     - Pink/magenta decorative corner brackets
     """
-    # Download photo
-    resp = requests.get(foto_url, timeout=15)
+    # Download photo (use browser headers for cms.mia937.com images)
+    resp = requests.get(foto_url, headers=BROWSER_HEADERS, timeout=15)
     resp.raise_for_status()
     photo = Image.open(io.BytesIO(resp.content)).convert("RGB")
 
