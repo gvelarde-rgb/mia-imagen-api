@@ -57,7 +57,11 @@ def index():
 @app.route("/rss-proxy")
 def rss_proxy():
     """Fetch MIA's WordPress RSS, enrich each item with media:content
-    pointing to the full-resolution featured image."""
+    pointing to the full-resolution featured image.
+
+    Uses regex-based injection instead of full XML round-trip to avoid
+    encoding issues with CDATA / content:encoded sections.
+    """
     try:
         resp = requests.get(WP_RSS_URL, timeout=15)
         resp.raise_for_status()
@@ -66,56 +70,40 @@ def rss_proxy():
     except Exception as e:
         return Response(f"Error fetching RSS: {e}", status=502, mimetype="text/plain")
 
-    # Strategy: parse the RSS XML, for each <item> extract the largest image
-    # from the <description> srcset, and inject a <media:content> element.
-    MEDIA_NS = "http://search.yahoo.com/mrss/"
-    ET.register_namespace("media", MEDIA_NS)
-    ET.register_namespace("content", "http://purl.org/rss/1.0/modules/content/")
-    ET.register_namespace("wfw", "http://wellformedweb.org/CommentAPI/")
-    ET.register_namespace("dc", "http://purl.org/dc/elements/1.1/")
-    ET.register_namespace("atom", "http://www.w3.org/2005/Atom")
-    ET.register_namespace("sy", "http://purl.org/rss/1.0/modules/syndication/")
-    ET.register_namespace("slash", "http://purl.org/rss/1.0/modules/slash/")
+    # Ensure media namespace is declared on <rss> tag
+    if "xmlns:media" not in rss_text:
+        rss_text = rss_text.replace(
+            '<rss ',
+            '<rss xmlns:media="http://search.yahoo.com/mrss/" ',
+            1,
+        )
 
-    try:
-        root = ET.fromstring(rss_text)
-    except ET.ParseError as e:
-        return Response(f"XML parse error: {e}", status=502, mimetype="text/plain")
+    # For each <item>, extract best image from <description> and inject
+    # a <media:content> tag right before </item>
+    def _inject_media(match):
+        item_xml = match.group(0)
+        # Skip if already has media:content
+        if "media:content" in item_xml:
+            return item_xml
+        # Extract description content
+        desc_match = re.search(r"<description>(.*?)</description>", item_xml, re.DOTALL)
+        if not desc_match:
+            return item_xml
+        desc_html = desc_match.group(1)
+        # Unescape CDATA / HTML entities for image extraction
+        import html as html_mod
+        desc_decoded = html_mod.unescape(desc_html)
+        best_url = _extract_best_image(desc_decoded)
+        if not best_url:
+            return item_xml
+        mime = _guess_mime(best_url)
+        media_tag = f'\n<media:content url="{best_url}" type="{mime}" medium="image" />'
+        # Insert before closing </item>
+        return item_xml.replace("</item>", f"{media_tag}\n</item>")
 
-    channel = root.find("channel")
-    if channel is None:
-        return Response("No <channel> in RSS", status=502, mimetype="text/plain")
+    rss_text = re.sub(r"<item>.*?</item>", _inject_media, rss_text, flags=re.DOTALL)
 
-    for item in channel.findall("item"):
-        # Check if media:content already exists
-        existing = item.find(f"{{{MEDIA_NS}}}content")
-        if existing is not None:
-            continue
-
-        # Extract best image URL from description HTML
-        desc_el = item.find("description")
-        if desc_el is None or desc_el.text is None:
-            continue
-
-        desc_html = desc_el.text
-        best_url = _extract_best_image(desc_html)
-        if best_url:
-            media_el = ET.SubElement(item, f"{{{MEDIA_NS}}}content")
-            media_el.set("url", best_url)
-            media_el.set("type", _guess_mime(best_url))
-            media_el.set("medium", "image")
-
-    # Also update link references: map cms.mia937.com → www.mia937.com
-    for item in channel.findall("item"):
-        link_el = item.find("link")
-        if link_el is not None and link_el.text:
-            link_el.text = _rewrite_link(link_el.text)
-        guid_el = item.find("guid")
-        if guid_el is not None and guid_el.text:
-            guid_el.text = _rewrite_link(guid_el.text)
-
-    xml_str = ET.tostring(root, encoding="unicode", xml_declaration=True)
-    return Response(xml_str, mimetype="application/rss+xml; charset=utf-8")
+    return Response(rss_text, mimetype="application/rss+xml; charset=utf-8")
 
 
 def _rewrite_link(url: str) -> str:
