@@ -1,6 +1,9 @@
+import hashlib
 import io
 import re
+import struct
 import textwrap
+import time
 import xml.etree.ElementTree as ET
 
 import requests
@@ -21,7 +24,7 @@ BROWSER_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8",
     "Accept-Language": "es-GT,es;q=0.9,en;q=0.8",
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept-Encoding": "gzip, deflate",
     "Connection": "keep-alive",
 }
 
@@ -30,6 +33,134 @@ ACCENT_COLOR = (148, 50, 120)  # purple matching MIA's brand
 TITLE_BG = (255, 255, 255, 210)  # semi-transparent white
 TITLE_TEXT_COLOR = (30, 30, 30)
 OUTPUT_W, OUTPUT_H = 1080, 1350
+
+# ---------------------------------------------------------------------------
+# SiteGround Captcha Solver — solves JS proof-of-work challenge
+# ---------------------------------------------------------------------------
+_sg_session = None  # Reusable session with solved captcha cookie
+
+
+def _solve_sg_challenge(challenge_str: str) -> str | None:
+    """Solve SiteGround's SHA-1 proof-of-work challenge.
+    
+    Challenge format: 'difficulty:timestamp:salt:hash:'
+    Must find a counter N such that SHA1(challenge_bytes + counter_bytes) 
+    has `difficulty` leading zero bits.
+    
+    The JS worker encodes counter as variable-length big-endian bytes,
+    appends to the UTF-8 challenge string, and feeds to CryptoJS SHA-1.
+    The byte-swap (p function) in the JS just converts platform-LE Int32
+    back to BE for CryptoJS — net effect is standard SHA-1 on raw bytes.
+    """
+    import base64
+
+    difficulty = int(challenge_str.split(":", 1)[0])
+    challenge_bytes = challenge_str.encode("utf-8")
+    mask = (1 << difficulty) - 1  # e.g. 0x1FFFFF for difficulty=21
+    shift = 32 - difficulty
+
+    counter = 0
+    max_attempts = 10_000_000
+
+    while counter < max_attempts:
+        # Encode counter as variable-length big-endian bytes (matching JS)
+        if counter == 0:
+            counter_bytes = b'\x00'
+        else:
+            byte_len = (counter.bit_length() + 7) // 8
+            counter_bytes = counter.to_bytes(byte_len, 'big')
+
+        combined = challenge_bytes + counter_bytes
+        h = hashlib.sha1(combined).digest()
+
+        # Check leading `difficulty` zero bits via first 4-byte word
+        first_word = struct.unpack('>I', h[:4])[0]
+        if (first_word >> shift) == 0:
+            return base64.b64encode(combined).decode('ascii')
+
+        counter += 1
+
+    return None
+
+
+def _get_sg_session() -> requests.Session:
+    """Get a requests.Session that has solved the SiteGround captcha.
+    Reuses the session if cookies are still valid."""
+    global _sg_session
+    
+    if _sg_session is not None:
+        # Test if session is still valid
+        try:
+            r = _sg_session.get(
+                f"{WP_API_BASE}/posts?per_page=1&_fields=id",
+                timeout=10
+            )
+            if r.status_code == 200 and 'sgcaptcha' not in r.text:
+                return _sg_session
+        except Exception:
+            pass
+    
+    # Create new session and solve captcha
+    session = requests.Session()
+    session.headers.update(BROWSER_HEADERS)
+    
+    # First request — may trigger captcha
+    r = session.get(f"{WP_API_BASE}/posts?per_page=1&_fields=id", timeout=15)
+    
+    if r.status_code == 200 and 'sgcaptcha' not in r.text:
+        # No captcha needed
+        _sg_session = session
+        return session
+    
+    # Extract captcha redirect URL
+    match = re.search(r'content="0;([^"]+)"', r.text)
+    if not match:
+        print("SG Captcha: Could not find redirect URL")
+        _sg_session = session
+        return session
+    
+    captcha_path = match.group(1)
+    captcha_url = f"https://cms.mia937.com{captcha_path}"
+    
+    # Fetch the challenge page
+    r2 = session.get(captcha_url, timeout=15)
+    
+    # Extract challenge string
+    challenge_match = re.search(r'const sgchallenge="([^"]+)"', r2.text)
+    submit_match = re.search(r'const sgsubmit_url="([^"]+)"', r2.text)
+    
+    if not challenge_match or not submit_match:
+        print("SG Captcha: Could not extract challenge")
+        _sg_session = session
+        return session
+    
+    challenge = challenge_match.group(1)
+    submit_url = submit_match.group(1)
+    
+    print(f"SG Captcha: Solving challenge (difficulty={challenge.split(':')[0]})...")
+    start_time = time.time()
+    
+    solution = _solve_sg_challenge(challenge)
+    elapsed = time.time() - start_time
+    
+    if not solution:
+        print(f"SG Captcha: Failed to solve after {elapsed:.1f}s")
+        _sg_session = session
+        return session
+    
+    print(f"SG Captcha: Solved in {elapsed:.1f}s")
+    
+    # Submit solution
+    from urllib.parse import quote
+    sep = "&" if "?" in submit_url else "?"
+    solve_url = f"https://cms.mia937.com{submit_url}{sep}sol={quote(solution)}&s={int(elapsed*1000)}:1"
+    
+    r3 = session.get(solve_url, timeout=15, allow_redirects=True)
+    print(f"SG Captcha: Submit response {r3.status_code}, cookies: {dict(session.cookies)}")
+    
+    _sg_session = session
+    return session
+
 
 # Cache logo in memory
 _logo_img = None
@@ -65,7 +196,8 @@ def debug_fetch():
     """Temporary debug endpoint to check what the server sees when fetching CMS."""
     url = request.args.get("url", f"{WP_API_BASE}/posts?per_page=1")
     try:
-        resp = requests.get(url, headers=BROWSER_HEADERS, timeout=20)
+        session = _get_sg_session()
+        resp = session.get(url, timeout=20)
         return jsonify({
             "status_code": resp.status_code,
             "content_type": resp.headers.get("content-type", ""),
@@ -88,9 +220,10 @@ def rss_proxy():
 
     try:
         # Fetch recent posts with embedded featured media
-        # Uses browser-like headers to bypass Siteground captcha
+        # Uses session with solved SiteGround captcha
+        session = _get_sg_session()
         api_url = f"{WP_API_BASE}/posts?per_page=10&_embed"
-        resp = requests.get(api_url, headers=BROWSER_HEADERS, timeout=20)
+        resp = session.get(api_url, timeout=20)
         resp.encoding = "utf-8"
         resp.raise_for_status()
         posts = resp.json()
@@ -233,8 +366,12 @@ def _generate_branded_image(titulo: str, foto_url: str) -> Image.Image:
     - MIA logo below title
     - Pink/magenta decorative corner brackets
     """
-    # Download photo (use browser headers for cms.mia937.com images)
-    resp = requests.get(foto_url, headers=BROWSER_HEADERS, timeout=15)
+    # Download photo (use SG session for cms.mia937.com images, else plain request)
+    if "cms.mia937.com" in foto_url:
+        session = _get_sg_session()
+        resp = session.get(foto_url, timeout=15)
+    else:
+        resp = requests.get(foto_url, headers=BROWSER_HEADERS, timeout=15)
     resp.raise_for_status()
     photo = Image.open(io.BytesIO(resp.content)).convert("RGB")
 
