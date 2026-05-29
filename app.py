@@ -11,6 +11,11 @@ import requests
 from flask import Flask, Response, jsonify, request, send_file
 from PIL import Image, ImageDraw, ImageFont
 
+try:
+    import pillow_avif  # noqa: F401 – registers AVIF codec with Pillow
+except ImportError:
+    pass
+
 app = Flask(__name__)
 
 # ---------------------------------------------------------------------------
