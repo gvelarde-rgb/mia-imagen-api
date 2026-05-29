@@ -494,25 +494,3 @@ def globo_debug_fetch():
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
 
-@app.route("/globo/test-rss")
-def globo_test_rss():
-    """Return a single unique test article for Globo - always 'new' for RSS triggers."""
-    import uuid
-    uid = str(uuid.uuid4())[:8]
-    xml = f"""<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
-  <channel>
-    <title>Globo 989</title>
-    <link>https://cms.globo989.com</link>
-    <description>Test feed</description>
-    <item>
-      <title>TEST: A.B. Quintanilla quedó impactado al ver a Dua Lipa interpretar Amor Prohibido</title>
-      <link>https://cms.globo989.com/test-{uid}/</link>
-      <guid isPermaLink="true">https://cms.globo989.com/test-{uid}/</guid>
-      <pubDate>Thu, 28 May 2026 19:00:00 +0000</pubDate>
-      <description>Test article for Globo</description>
-      <media:content url="https://cms.globo989.com/wp-content/uploads/2026/05/Dua-Lipa-Amor-prohibido.jpg" type="image/jpeg" medium="image" />
-    </item>
-  </channel>
-</rss>"""
-    return Response(xml, mimetype="application/rss+xml")
