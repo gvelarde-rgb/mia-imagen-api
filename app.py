@@ -390,10 +390,11 @@ def _generate_branded_image(brand_key: str, titulo: str, foto_url: str) -> Image
     canvas = canvas.convert("RGBA")
     canvas = Image.alpha_composite(canvas, overlay)
 
-    # Paste logo
+    # Paste logo — centered vertically between bar_bottom and image bottom
     logo = get_logo(brand_key)
     logo_x = (OUTPUT_W - logo.width) // 2
-    logo_y = bar_bottom + 20
+    space_below = OUTPUT_H - bar_bottom
+    logo_y = bar_bottom + (space_below - logo.height) // 2
     canvas.paste(logo, (logo_x, logo_y), logo)
 
     return canvas.convert("RGB")
